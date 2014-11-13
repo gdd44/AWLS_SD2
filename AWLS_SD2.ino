@@ -4,24 +4,29 @@
 
 // General IO pins
 const int led = 13;
-const int navBtn = 10;
-const int selBtn = 11;
-const int buzzer = 28;
+const int navBtn = 7;
+const int selBtn = 6;
+const int buzzer = 44;
 
 // Motor Control
-const int MCDirA = 22;
-const int MCDirB = 23;
-const int MCFullSpeed = 24;
-const int MCVarSpeed = 25;
-const int MCVSA = 26;
-const int MCVSB = 27;
+const int MCout = 41;
+const int MCin = 39;
+const int MCFullSpeed = 37;
+const int MCVarSpeed = 35;
+const int MCVS1 = 33;
+const int MCVS2 = 31;
+const int MCVS3 = 29;
+const int MCVS4 = 27;
+const int MCVS5 = 25;
+const int MCVS6 = 23;
 
 // Pressure Sensor
 const int pressureSensor = 0;
 int weight = 0;
 
 // foot pedal
-const int footPedal = 52;
+const int footPedal = 51;
+const int footPedalConn = 53;
 
 // Wheel Encoder variables
 const int WEA = 2;  // int0
@@ -42,15 +47,16 @@ const int speedThreshold = -25;
 volatile int downwardsCnt = 0;
 volatile int LockCnt = 0;
 
-// initialize LC library with the pins to be used
-// Pin2 = rs
-// Pin3 = enable
-// Pin4 = d4
-// Pin5 = d5
-// Pin6 = d6
-// Pin7 = d7
-//LiquidCrystal lcd(2,3,4,5,6,7);
-LiquidCrystal lcd(4,5,6,7,8,9);
+// initialize LiquidCrystal library with the pins to be used
+// Arduino Pin | LCD Pin
+// ------------+-----------
+//          13 | rs
+//          12 | enable
+//          11 | d4
+//          10 | d5
+//           9 | d6
+//           8 | d7
+LiquidCrystal lcd(13,12,11,10,9,8);
 
 // Define Main State Machine
 const byte waitForInput = 1;  // Wait on user input
@@ -131,18 +137,18 @@ void configPins()
   digitalWrite(buzzer, LOW);
   
   // Motor Control
-  pinMode(MCDirA, OUTPUT);
-  digitalWrite(MCDirA, LOW);
-  pinMode(MCDirB, OUTPUT);
-  digitalWrite(MCDirB, LOW);
+  pinMode(MCout, OUTPUT);
+  digitalWrite(MCout, LOW);
+  pinMode(MCin, OUTPUT);
+  digitalWrite(MCin, LOW);
   pinMode(MCFullSpeed, OUTPUT);
   digitalWrite(MCFullSpeed, LOW);
   pinMode(MCVarSpeed, OUTPUT);
   digitalWrite(MCVarSpeed, LOW);
-  pinMode(MCVSA, OUTPUT);
-  digitalWrite(MCVSA, LOW);
-  pinMode(MCVSB, OUTPUT);
-  digitalWrite(MCVSB, LOW);
+  pinMode(MCVS5, OUTPUT);
+  digitalWrite(MCVS5, LOW);
+  pinMode(MCVS6, OUTPUT);
+  digitalWrite(MCVS6, LOW);
   
   // setup led
   pinMode(led, OUTPUT);
@@ -278,24 +284,24 @@ void readWeight()
 
 void MCSpoolOut()
 {
-  digitalWrite(MCDirA, HIGH);
-  digitalWrite(MCDirB, LOW);
+  digitalWrite(MCout, HIGH);
+  digitalWrite(MCin, LOW);
 }
 
 void MCReelIn()
 {
-  digitalWrite(MCDirA, LOW);
-  digitalWrite(MCDirB, HIGH);
+  digitalWrite(MCout, LOW);
+  digitalWrite(MCin, HIGH);
 }
 
 void MCShutOff()
 {
-  digitalWrite(MCDirA, LOW);
-  digitalWrite(MCDirB, LOW);
+  digitalWrite(MCout, LOW);
+  digitalWrite(MCin, LOW);
   digitalWrite(MCFullSpeed, LOW);
   digitalWrite(MCVarSpeed, LOW);
-  digitalWrite(MCVSA, LOW);
-  digitalWrite(MCVSB, LOW);
+  digitalWrite(MCVS5, LOW);
+  digitalWrite(MCVS6, LOW);
 }
 
 void emergencyLift()
@@ -344,23 +350,23 @@ void assist(int level)
     {
       MCReelIn();
       digitalWrite(MCVarSpeed, HIGH);
-      digitalWrite(MCVSA, HIGH);
-      digitalWrite(MCVSB, LOW);
+      digitalWrite(MCVS5, HIGH);
+      digitalWrite(MCVS6, LOW);
       helpLevel = 1;
     }
     else if (level <= 40)
     {
       MCReelIn();
       digitalWrite(MCVarSpeed, HIGH);
-      digitalWrite(MCVSA, LOW);
-      digitalWrite(MCVSB, HIGH);
+      digitalWrite(MCVS5, LOW);
+      digitalWrite(MCVS6, HIGH);
       helpLevel = 2;
     }
     else
     {
       digitalWrite(MCVarSpeed, LOW);
-      digitalWrite(MCVSA, LOW);
-      digitalWrite(MCVSB, LOW);
+      digitalWrite(MCVS5, LOW);
+      digitalWrite(MCVS6, LOW);
       emergencyLift();
     }
   }
@@ -446,7 +452,7 @@ void calibrate()
     {
       MCSpoolOut();
       digitalWrite(MCVarSpeed, HIGH);
-      digitalWrite(MCVSA, HIGH);
+      digitalWrite(MCVS5, HIGH);
     }
     while (digitalRead(footPedal) == LOW);  // Quit spooling out rope when user releases foot pedal
     delay(1000);  // wait for motor to cool down;
