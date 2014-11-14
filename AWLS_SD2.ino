@@ -131,6 +131,7 @@ void configPins()
 {
   // foot pedal
   pinMode(footPedal, INPUT_PULLUP);
+  pinMode(footPedalConn, INPUT_PULLUP);
   
   // buzzer
   pinMode(buzzer, OUTPUT);
@@ -145,6 +146,14 @@ void configPins()
   digitalWrite(MCFullSpeed, LOW);
   pinMode(MCVarSpeed, OUTPUT);
   digitalWrite(MCVarSpeed, LOW);
+  pinMode(MCVS1, OUTPUT);
+  digitalWrite(MCVS1, LOW);
+  pinMode(MCVS2, OUTPUT);
+  digitalWrite(MCVS2, LOW);
+  pinMode(MCVS3, OUTPUT);
+  digitalWrite(MCVS3, LOW);
+  pinMode(MCVS4, OUTPUT);
+  digitalWrite(MCVS4, LOW);
   pinMode(MCVS5, OUTPUT);
   digitalWrite(MCVS5, LOW);
   pinMode(MCVS6, OUTPUT);
