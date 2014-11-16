@@ -270,8 +270,8 @@ void Lockout()
   lcd.print("30min for motor     ");
   lcd.setCursor(0,2);
   lcd.print("cool-down.          ");
-  lcd.setCursor(0,3);
-  lcd.print("                    ");
+//  lcd.setCursor(0,3);
+//  lcd.print("                    ");
   
   configTimerForLockout();
   while (minutes < 30)
@@ -295,7 +295,7 @@ void readWeight()
   {
     sum += analogRead(pressureSensor);
   }
-  float avg = (float)sum / 10.0;
+  float avg = (float)sum / 20.0;
   float analogVal = (float) avg / 1023.0 * 5.0;
   
   if (analogVal < ((volt45-volt0)/2 + volt0)) 
