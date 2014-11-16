@@ -15,7 +15,6 @@ const float volt315 = 3.85;
 const float volt405 = 3.95;
 
 // General IO pins
-const int led = 13;
 const int navBtn = 7;
 const int selBtn = 6;
 const int buzzer = 44;
@@ -170,11 +169,7 @@ void configPins()
   digitalWrite(MCVS5, LOW);
   pinMode(MCVS6, OUTPUT);
   digitalWrite(MCVS6, LOW);
-  
-  // setup led
-  pinMode(led, OUTPUT);
-  digitalWrite(led, HIGH);
-  
+    
   // setup buttons
   pinMode(navBtn, INPUT_PULLUP);
   pinMode(selBtn, INPUT_PULLUP);
@@ -212,7 +207,6 @@ void WEHandler()
 
 void timerISR()
 {
-  digitalWrite(led, digitalRead(led) ^ 1);
   countDiff = WECounts - lastCount;
   
   if (countDiff > 0)
@@ -265,7 +259,7 @@ void Lockout()
   
   // print message to screen
   lcd.setCursor(0,0);
-  lcd.print("User locked out for ");
+  lcd.print("User locked out     ");
   lcd.setCursor(0,1);
   lcd.print("30min for motor     ");
   lcd.setCursor(0,2);
@@ -602,6 +596,7 @@ void lift()
   boolean startFlag = false;
   int tmp;
   
+  // Only proceed if the spotter is calibrated
   if (calibrateFlag)
   {
     // Wait for user to press foot pedal
@@ -626,7 +621,7 @@ void lift()
         delay(500);
         if (digitalRead(footPedal) == HIGH)
         {
-          Serial.println("Foot pedal released while lifting");
+//          Serial.println("Foot pedal released while lifting");
           lcd.setCursor(0,3);
           lcd.print("FPRWL          ");
           emergencyLift();
@@ -642,7 +637,7 @@ void lift()
         delay(500);
         if (analogRead(pressureSensor) > 204)  // 1 volt
         {
-          Serial.println("Bar placed back in rack");
+//          Serial.println("Bar placed back in rack");
           lcd.setCursor(0,3);
           lcd.print("BPBIR          ");
           liftingFlag = false;
@@ -656,9 +651,9 @@ void lift()
       {
         // Wait for bar to be lifted out of rack
         case barInRack:
-          Serial.println("State: barInRack");
+//          Serial.println("State: barInRack");
           lcd.setCursor(0,2);
-          lcd.print("SBIR          ");
+          lcd.print("SBIR");
           if (analogRead(pressureSensor) < 204)  // 1 volt
           {
             startFlag = true;
@@ -668,12 +663,13 @@ void lift()
           }
           break;
           
+        // Bar is moving downwards
         case downwardState:
-          Serial.println("State: downwardState");
+//          Serial.println("State: downwardState");
           lcd.setCursor(0,2);
           lcd.print("SDWS ");
-//          lcd.print(WECounts);
-//          lcd.print("     ");
+          lcd.print(WECounts);
+          lcd.print("     ");
           // Go to upwards state if upwards motion detected
           tmp = WECounts;
           if (upwards && tmp <= 50)
@@ -688,7 +684,7 @@ void lift()
           // Guard against free fall
           if (countDiff < speedThreshold)  // Threshold and countdiff are both negative
           {
-            Serial.println("Freefall detected");
+//            Serial.println("Freefall detected");
             lcd.setCursor(0,3);
             lcd.print("FFD          ");
 //            emergencyLift();
@@ -707,15 +703,15 @@ void lift()
           break;
           
         case upwardState:
-          Serial.println("State: upward state");
+//          Serial.println("State: upward state");
           lcd.setCursor(0,2);
           lcd.print("SUWS ");
 //          if (upwards) lcd.print("U ");
 //          else if (downwards) lcd.print("D ");
 //          else lcd.print("N ");
-//          lcd.print(WECounts);
+          lcd.print(WECounts);
 //          lcd.print(stall);
-//          lcd.print("     ");
+          lcd.print("     ");
           
           // Clear stalls if they are irrelevant
           if (WECounts <= 15 || WECounts >= 0.85*topVal) stall = 0;
@@ -751,7 +747,7 @@ void lift()
           
         default:
           // exit lifting loop
-          Serial.println("Exit lift");
+//          Serial.println("Exit lift");
           lcd.setCursor(0,3);
           lcd.print("EXIT_SUCCESS     ");
           liftingFlag = false;
@@ -800,7 +796,7 @@ void setup()
   configPins();
   configTimer();
   
-  Serial.begin(9600);
+//  Serial.begin(9600);
   
   // set up the LCD's number of columns and rows:
   lcd.begin(20,4);
@@ -841,7 +837,6 @@ void loop()
       else if (menuRow == 2)
       {
         // Setup and enter lifting routine
-//        calibrateFlag = true;
         reps = 0;
         WECounts = 80;
         readWeight();
@@ -862,8 +857,7 @@ void loop()
       break;
       
     default:
-      // blink LED to indicate error
-      //digitalWrite(led, !digitalRead(led));
+      // do nothing
       break;
   }
   
