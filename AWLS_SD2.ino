@@ -1,6 +1,18 @@
+// Platform: Arduino Mega 2560
+// Authors: Garrett Doorenbos and Chris Childers
+// Date: Fall 2014
+
 #include <TimerOne.h>
 #include <LiquidCrystal.h>
 #include <inttypes.h>
+
+// constants
+const float volt0 = 0.1;
+const float volt45 = 2.1;
+const float volt135 = 3.25;
+const float volt225 = 3.65;
+const float volt315 = 3.85;
+const float volt405 = 3.95;
 
 // General IO pins
 const int led = 13;
@@ -231,9 +243,8 @@ void timerISR()
 
 void configTimer()
 {
-  Timer1.initialize(100000);  // initialize timer for 100 ms (don't do math in function call
+  Timer1.initialize(100000);  // initialize timer for 100 ms (don't do math in function call)
   Timer1.attachInterrupt(timerISR);  // attach interrupt to function
-//  Timer1.stop();
 }
 
 void configTimerForLockout()
@@ -279,16 +290,38 @@ void Lockout()
 
 void readWeight()
 {
-  int digVal = analogRead(pressureSensor);
-  float analogVal = (float) digVal / 1023.0 * 5.0;
+  int i, cnt, sum = 0;
+  for (i=0; i<20; i++)
+  {
+    sum += analogRead(pressureSensor);
+  }
+  float avg = (float)sum / 10.0;
+  float analogVal = (float) avg / 1023.0 * 5.0;
   
-  if (analogVal < 1) weight = 0;
-  else if (analogVal < 2) weight = 45;
-  else if (analogVal < 2.95) weight = 135;
-  else if (analogVal < 3.1) weight = 225;
-  else if (analogVal < 3.3) weight = 315;
-  else if (analogVal < 3.5) weight = 445;
-  else weight = 495;
+  if (analogVal < ((volt45-volt0)/2 + volt0)) 
+  {
+    weight = 0;
+  }
+  else if (analogVal < ((volt135-volt45)/2 + volt45)) 
+  {
+    weight = 45;
+  }
+  else if (analogVal < ((volt225-volt135)/2 + volt135))
+  {
+    weight = 135;
+  }
+  else if (analogVal < ((volt315-volt225)/2 + volt225))
+  {
+    weight = 225;
+  }
+  else if (analogVal < ((volt405-volt315)/2 + volt315))
+  {
+    weight = 315;
+  }
+  else
+  {
+    weight = 405;
+  }
 }
 
 void MCSpoolOut()
@@ -309,6 +342,10 @@ void MCShutOff()
   digitalWrite(MCin, LOW);
   digitalWrite(MCFullSpeed, LOW);
   digitalWrite(MCVarSpeed, LOW);
+  digitalWrite(MCVS1, LOW);
+  digitalWrite(MCVS2, LOW);
+  digitalWrite(MCVS3, LOW);
+  digitalWrite(MCVS4, LOW);
   digitalWrite(MCVS5, LOW);
   digitalWrite(MCVS6, LOW);
 }
@@ -403,44 +440,13 @@ void calibrate()
     lcd.print("                    ");
     
     // Wait for bar to come off rack
-    while(analogRead(pressureSensor) > 204);
-//    lcd.setCursor(0,1);
-//    lcd.print("bar lifted off rack");
-//    
-//    // Wait for Counts to settle at top of lift
-//    int top[10];
-//    int topPtr = 0;
-//    int sum = 0;
-//    boolean topValFound = false;
-//    int sameCount = 0;
-//    int lastCount = WECounts;
-//    delay(100);
-//    while(!topValFound)
-//    {
-//      int tmpCnt = WECounts;
-//      if ((tmpCnt >= (lastCount - 5)) || (tmpCnt <= (lastCount + 5)))
-//      {
-//        sum = sum - top[topPtr];
-//        sum = sum + tmpCnt;
-//        top[topPtr] = tmpCnt;
-//        if (topPtr++ >= 10) topPtr = 0;
-//        
-//        // check to see if all values within certain tolerance
-//        int maxDiff = 0;
-//        for (int i = 1; i < 10; i++)
-//        {
-//          maxDiff = top[i] - top[0];
-//        }
-//        if (maxDiff < 10)
-//        {
-//          topValFound = true;
-//        }
-//      }
-//      lastCount = tmpCnt;
-//      delay(100);
-//    }
-//    topVal = WECounts;
-    delay(100);
+    while(analogRead(pressureSensor) > 204)
+    {
+      delay(50); // debounce
+    }
+    delay(100);  // give user a chance to lift bar up to top of lift. Without this, the arduino might stall out before the weight gets out of the rack very well
+    
+    // Wait for stall at the top of lift
     stall = 0;
     while(stall < 5);
     topVal = WECounts;
@@ -455,35 +461,28 @@ void calibrate()
     digitalWrite(buzzer, LOW);
     
     // let user spool rope out
-    while (digitalRead(footPedal) == HIGH);  // wait for user to press foot pedal
-    delay(1000);
+    while (digitalRead(footPedal) == HIGH)  // wait for user to press foot pedal
+    {
+      delay(50);  // debounce
+    }
+    delay(1000); // wait a bit
     if (digitalRead(footPedal) == LOW)  // if user still has pedal pressed, spool out rope
     {
       MCSpoolOut();
       digitalWrite(MCVarSpeed, HIGH);
-      digitalWrite(MCVS5, HIGH);
+      digitalWrite(MCVS3, HIGH);
     }
-    while (digitalRead(footPedal) == LOW);  // Quit spooling out rope when user releases foot pedal
-    delay(1000);  // wait for motor to cool down;
-    MCShutOff();
-    
+    while (digitalRead(footPedal) == LOW)  // Quit spooling out rope when user releases foot pedal
+    {
+      delay(50);  // debounce
+    }
     bottomVal = WECounts;
-    
+    MCShutOff();
+      
     // print to screen
     lcd.setCursor(0,2);
     lcd.print("BOL Recorded");
-       
-//    sameCount = 0;
-//    lastCount = WECounts;
-//    delay(100);
-//    while(sameCount < 10)
-//    {
-//      if (WECounts == lastCount) sameCount++;
-//      lastCount = WECounts;
-//      delay(100);
-//    }
-//    bottomVal = lastCount;
-
+    
     digitalWrite(buzzer, HIGH);
     delay(500);
     digitalWrite(buzzer, LOW);
@@ -503,10 +502,16 @@ void calibrate()
       calibrateFlag = false;
       
       // wait for bar to be placed in rack
-      while(analogRead(pressureSensor) < 204);
+      while(analogRead(pressureSensor) < 204)
+      {
+        delay(50);  // de bounce
+      }
       
       // wait for user to exit
-      while(digitalRead(navBtn) == HIGH && digitalRead(selBtn) == HIGH);
+      while(digitalRead(navBtn) == HIGH && digitalRead(selBtn) == HIGH)
+      {
+        delay(50);  // delay
+      }
       delay(100);
     
       return;  // exit calibrate function
@@ -524,7 +529,10 @@ void calibrate()
     lcd.print("Correct?");
     
     // wait for bar to be placed in rack
-    while(analogRead(pressureSensor) < 204);
+    while(analogRead(pressureSensor) < 204)
+    {
+      delay(50);
+    }
     
     while(true)
     {
@@ -537,7 +545,10 @@ void calibrate()
         lcd.print("Calibration Accepted");
         
         // wait for user to exit
-        while (digitalRead(navBtn) && digitalRead(selBtn));
+        while (digitalRead(navBtn) && digitalRead(selBtn))
+        {
+          delay(50);
+        }
         delay(100);
         break;
       }
@@ -549,10 +560,14 @@ void calibrate()
         lcd.print("Calibration Rejected");
         
         // wait for user to exit
-        while (digitalRead(navBtn) && digitalRead(selBtn));
+        while (digitalRead(navBtn) && digitalRead(selBtn))
+        {
+          delay(50);
+        }
         delay(100);
         break;
       }
+      delay(50);  // debounce
     }
   }
   else
@@ -573,7 +588,10 @@ void calibrate()
     digitalWrite(buzzer, LOW);
     
     // wait for user to exit
-    while(digitalRead(navBtn) == HIGH && digitalRead(selBtn) == HIGH);
+    while(digitalRead(navBtn) == HIGH && digitalRead(selBtn) == HIGH)
+    {
+      delay(50);
+    }
     delay(100);
   }
 }
