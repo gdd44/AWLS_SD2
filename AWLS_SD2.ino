@@ -42,14 +42,14 @@ const int footPedalConn = 53;
 // Wheel Encoder variables
 const int WEA = 2;  // int0
 const int WEB = 3;  // int1
-volatile int WECounts = 50;
+volatile int WECounts = 0;
 volatile int WEError = 0;
 volatile byte last_aVal, last_bVal;
 int helpLevel = 0;
 int reps = 0;
 
 // Timer vals
-volatile int lastCount = 50;
+volatile int lastCount = 0;
 volatile boolean upwards = false;
 volatile boolean downwards = false;
 volatile int stall = 0;
@@ -82,8 +82,11 @@ const byte upwardState = 3;
 const byte exitLift = 4;
 
 // defines for calibrate subroutine --TODO: change this before final!
-int topVal = 160;
-int bottomVal = 10;
+int topVal = 75;
+int bottomVal = -58;
+int topThreshold = 0.75*(topVal-bottomVal) + bottomVal;
+int bottomThreshold = 0.25*(topVal-bottomVal) + bottomVal;
+const int rackPosition = 0;
 
 // flags
 boolean calibrateFlag = true;  // TODO: change this before final!
@@ -214,23 +217,23 @@ void timerISR()
     upwards = true;
     downwards = false;
     downwardsCnt = 0;
-    stall = 0;
+//    stall = 0;
   }
   else if (countDiff < 0)
   {
     upwards = false;
     downwards = true;
     downwardsCnt++;
-    stall = 0;
+//    stall = 0;
   }
   else
   {
     upwards = downwards = false;
-    stall++;
+//    stall++;
   }
   
-//  if (countDiff >= -5 && countDiff <= 5) stall++;
-//  else stall = 0;
+  if (countDiff >= -1 && countDiff <= 1) stall++;
+  else stall = 0;
   
   lastCount = WECounts;
 }
@@ -264,8 +267,6 @@ void Lockout()
   lcd.print("30min for motor     ");
   lcd.setCursor(0,2);
   lcd.print("cool-down.          ");
-//  lcd.setCursor(0,3);
-//  lcd.print("                    ");
   
   configTimerForLockout();
   while (minutes < 30)
@@ -347,7 +348,7 @@ void MCShutOff()
 void emergencyLift()
 {
   // Reel in Rope until bar reaches rack
-  while(WECounts < 60)
+  while(WECounts < topThreshold)
   {
     MCReelIn();
     digitalWrite(MCFullSpeed, HIGH);
@@ -384,7 +385,7 @@ void freeFallLift()
 
 void assist(int level)
 {
-  if (WECounts < 60)
+  if (WECounts < topThreshold)
   {
     if ((level > 0) && (level <= 20))
     {
@@ -532,7 +533,8 @@ void calibrate()
     {
       if (digitalRead(selBtn) == LOW)
       {
-        topVal = topVal - bottomVal;
+        topThreshold = 0.75*(topVal-bottomVal) + bottomVal;
+        bottomThreshold = 0.25*(topVal-bottomVal) + bottomVal;
         calibrateFlag = true;
         lcd.clear();
         lcd.setCursor(0,0);
@@ -672,9 +674,9 @@ void lift()
           lcd.print("     ");
           // Go to upwards state if upwards motion detected
           tmp = WECounts;
-          if (upwards && tmp <= 50)
+          if (upwards && tmp < bottomThreshold)
           {
-            WECounts = 0;  // reset counter to maintain accuracy
+//            WECounts = 0;  // reset counter to maintain accuracy
             stall = 0;
             reps++;
             liftState = upwardState;
@@ -688,7 +690,7 @@ void lift()
             lcd.setCursor(0,3);
             lcd.print("FFD          ");
 //            emergencyLift();
-            freeFallLift();
+            emergencyLift();
             liftingFlag = false;
             return;
           }
@@ -714,10 +716,11 @@ void lift()
           lcd.print("     ");
           
           // Clear stalls if they are irrelevant
-          if (WECounts <= 15 || WECounts >= 0.85*topVal) stall = 0;
+          // redundant???
+//          if (WECounts <= 15 || WECounts >= 0.85*topVal) stall = 0;
           
           // help user if stall detected
-          if ((stall > 0) && (WECounts < 0.85*topVal))
+          if ((stall > 0) && (WECounts < topThreshold))
           {
             //Serial.println("Stall detected");
             lcd.setCursor(0,3);
@@ -739,9 +742,10 @@ void lift()
 //          }
           
           // If downward motion is detected at top of lift, go to downward state
-          if (downwards && WECounts >= (0.85*topVal))
+          if (downwards && WECounts >= topThreshold)
           {
             liftState = downwardState;
+            stall = 0;  
           }
           break;
           
@@ -795,9 +799,7 @@ void setup()
 {
   configPins();
   configTimer();
-  
-//  Serial.begin(9600);
-  
+    
   // set up the LCD's number of columns and rows:
   lcd.begin(20,4);
   
@@ -837,8 +839,8 @@ void loop()
       else if (menuRow == 2)
       {
         // Setup and enter lifting routine
+        WECounts = 0;
         reps = 0;
-        WECounts = 80;
         readWeight();
         liftingScreen();
         lift();
