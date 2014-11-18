@@ -58,6 +58,7 @@ const int speedThreshold = -25;
 volatile int downwardsCnt = 0;
 volatile int LockCnt = 0;
 volatile boolean lockoutFlag = false;
+volatile int minutes = 0;
 
 // initialize LiquidCrystal library with the pins to be used
 // Arduino Pin | LCD Pin
@@ -305,7 +306,7 @@ void LockoutISR()
   }
 }
 
-void lockoutScreen();
+void lockoutScreen()
 {
   // calculate remaining time
   int tmp = minutes;
