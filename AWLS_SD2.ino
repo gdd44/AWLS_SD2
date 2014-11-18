@@ -57,6 +57,7 @@ volatile int countDiff = 0;
 const int speedThreshold = -25;
 volatile int downwardsCnt = 0;
 volatile int LockCnt = 0;
+volatile boolean lockoutFlag = false;
 
 // initialize LiquidCrystal library with the pins to be used
 // Arduino Pin | LCD Pin
@@ -92,6 +93,14 @@ const int rackPosition = 0;
 boolean calibrateFlag = true;  // TODO: change this before final!
 boolean liftingFlag = false;
 
+void waitForButtonPress()
+{
+  while((digitalRead(navBtn) == HIGH) && (digitalRead(selBtn) == HIGH))
+  {
+    delay(50);  // debounce
+  }
+}
+
 void splashScreen()
 {
   lcd.setCursor(0,0);
@@ -117,6 +126,18 @@ void setupMenu()
   lcd.print(" Statistics         ");
 }
 
+void newMenu()
+{
+  lcd.setCursor(0,0);
+  lcd.print(">Calibrate          ");
+  lcd.setCursor(0,1);
+  lcd.print(" Lift               ");
+  lcd.setCursor(0,2);
+  lcd.print(" Statistics         ");
+  lcd.setCursor(0,3);
+  lcd.print(" Spool-Out Line     ");
+}
+
 void liftingScreen()
 {
   lcd.setCursor(0,0);
@@ -127,6 +148,18 @@ void liftingScreen()
   lcd.print("                    ");
   lcd.setCursor(0,3);
   lcd.print("                    ");  
+}
+
+void clearScreen()
+{
+  lcd.setCursor(0,0);
+  lcd.print("                    "); 
+  lcd.setCursor(0,1);
+  lcd.print("                    "); 
+  lcd.setCursor(0,2);
+  lcd.print("                    ");
+  lcd.setCursor(0,3);
+  lcd.print("                    "); 
 }
 
 void comingSoon()
@@ -244,43 +277,53 @@ void configTimer()
   Timer1.attachInterrupt(timerISR);  // attach interrupt to function
 }
 
-void configTimerForLockout()
+void Lockout()
 {
-  Timer1.initialize(1000000);
-  Timer1.attachInterrupt(LockoutISR);
+  lockoutFlag = true;
   LockCnt = 0;
+  minutes = 0;
+  Timer1.initialize(1000000);  // 1s
+  Timer1.attachInterrupt(LockoutISR);
 }
 
 void LockoutISR()
 {
   LockCnt++;
-}
-
-void Lockout()
-{
-  int minutes = 0;
-  
-  // print message to screen
-  lcd.setCursor(0,0);
-  lcd.print("User locked out     ");
-  lcd.setCursor(0,1);
-  lcd.print("30min for motor     ");
-  lcd.setCursor(0,2);
-  lcd.print("cool-down.          ");
-  
-  configTimerForLockout();
-  while (minutes < 30)
+  if (minutes < 30)
   {
     if (LockCnt >= 60)
     {
       LockCnt = 0;
       minutes++;
     }
-    delay(1000);  // delay for 1 second - ISR triggers every second
   }
+  else
+  {
+    // Lockout timer expired - reset everything
+    lockoutFlag = false;
+    configTimer();
+  }
+}
+
+void lockoutScreen();
+{
+  // calculate remaining time
+  int tmp = minutes;
+  int remaining = 30 - tmp;
   
-  // Config timer for lifting
-  configTimer();
+  // notify user of lockout
+  lcd.setCursor(0,0);
+  lcd.print("User locked out     ");
+  lcd.setCursor(0,1);
+  lcd.print("30min for motor     ");
+  lcd.setCursor(0,2);
+  lcd.print("cool-down.          ");
+  lcd.setCursor(0,3);
+  lcd.print("Remaining: ");
+  lcd.print(remaining);
+  lcd.print("       ");
+  
+  waitForButtonPress();
 }
 
 void readWeight()
@@ -795,6 +838,55 @@ void statistics()
   delay(100);
 }
 
+bool barIsInRack()
+{
+  if(analogRead(pressureSensor) > 204) // 1 volt
+  {
+    return true;
+  }
+  return false;
+}
+
+void spoolOutLine()
+{
+  // only proceed if bar is not in rack
+  if (!barIsInRack())  
+  {
+    // only proceed if bar is higher than bottom value
+    if (WECounts > bottomVal)
+    {
+      // spool out until bar reaches bottom value
+      digitalWrite(MCVarSpeed, HIGH);
+      digitalWrite(MCVS4, HIGH);
+      while(WECounts > bottomVal);
+      MCShutOff();
+      
+      // Print confirmation screen
+      clearScreen();
+      lcd.setCursor(0,0);
+      lcd.print("Done spooling out");
+    }
+    else
+    {
+      clearScreen();
+      lcd.setCursor(0,0);
+      lcd.print("Already enough slack");
+      lcd.print("      in line       ");
+    }
+  }
+  else
+  {
+    // bar needs to be removed from rack
+    WECounts = rackPosition;  // bar is in rack, so make sure counts is right
+    clearScreen();
+    lcd.setCursor(0,0);
+    lcd.print("Remove bar from rack");
+    lcd.print("and try again");
+  }
+  
+  waitForButtonPress();
+}
+
 void setup()
 {
   configPins();
@@ -805,7 +897,7 @@ void setup()
   
   // Print a message to the LCD.
   splashScreen();
-  setupMenu();
+  newMenu();
 }
 
 void loop()
@@ -824,7 +916,7 @@ void loop()
       lcd.setCursor(0,menuRow);
       lcd.print(" ");
       menuRow++;
-      if (menuRow > 3) menuRow = 1;
+      if (menuRow > 4) menuRow = 1;
       lcd.setCursor(0,menuRow);
       lcd.print(">");
       myState = waitForInput;
@@ -833,22 +925,42 @@ void loop()
     case selBtnPressed:
       if (menuRow == 1)
       {
-        WECounts = 80;
-        calibrate();
+        // make sure user isn't locked out
+        if (lockoutFlag)
+        {
+          lockoutScreen();
+        }
+        else
+        {
+          WECounts = 0;
+          calibrate();
+        }
       }
       else if (menuRow == 2)
       {
-        // Setup and enter lifting routine
-        WECounts = 0;
-        reps = 0;
-        readWeight();
-        liftingScreen();
-        lift();
-        while(digitalRead(navBtn) == HIGH && digitalRead(selBtn) == HIGH);
+        // make sure user isn't locked out
+        if (lockoutFlag)
+        {
+          lockoutScreen();
+        }
+        else
+        {
+          // Setup and enter lifting routine
+          WECounts = 0;
+          reps = 0;
+          readWeight();
+          liftingScreen();
+          lift();
+          waitForButtonPress();
+        }
       }
       else if (menuRow == 3)
       {
         statistics();
+      }
+      else if (menuRow == 4)
+      {
+        spoolOutLine();
       }
       
       menuRow = 1;
