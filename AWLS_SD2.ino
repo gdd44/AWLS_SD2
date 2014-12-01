@@ -83,15 +83,15 @@ const byte downwardState = 2;
 const byte upwardState = 3;
 const byte exitLift = 4;
 
-// defines for calibrate subroutine --TODO: change this before final!
-int topVal = 75;
-int bottomVal = -58;
+// defines for calibrate subroutine
+int topVal = 75;  // default value
+int bottomVal = -58; // default value
 int topThreshold = 0.75*(topVal-bottomVal) + bottomVal;
 int bottomThreshold = 0.25*(topVal-bottomVal) + bottomVal;
 const int rackPosition = 0;
 
 // flags
-boolean calibrateFlag = true;  // TODO: change this before final!
+boolean calibrateFlag = false;
 boolean liftingFlag = false;
 
 void waitForButtonPress()
@@ -115,19 +115,7 @@ void splashScreen()
   delay(3000);
 }
 
-void setupMenu()
-{
-  lcd.setCursor(0,0);
-  lcd.print("Select an Option:   ");
-  lcd.setCursor(0,1);
-  lcd.print(">Calibrate          ");
-  lcd.setCursor(0,2);
-  lcd.print(" Lift               ");
-  lcd.setCursor(0,3);
-  lcd.print(" Statistics         ");
-}
-
-void newMenu()
+void Menu()
 {
   lcd.setCursor(0,0);
   lcd.print(">Calibrate          ");
@@ -251,23 +239,26 @@ void timerISR()
     upwards = true;
     downwards = false;
     downwardsCnt = 0;
-//    stall = 0;
   }
   else if (countDiff < 0)
   {
     upwards = false;
     downwards = true;
     downwardsCnt++;
-//    stall = 0;
   }
   else
   {
     upwards = downwards = false;
-//    stall++;
   }
   
-  if (countDiff >= -1 && countDiff <= 1) stall++;
-  else stall = 0;
+  if (countDiff >= -1 && countDiff <= 1) 
+  {
+    stall++;
+  }
+  else 
+  {
+    stall = 0;
+  }
   
   lastCount = WECounts;
 }
@@ -667,7 +658,6 @@ void lift()
         delay(500);
         if (digitalRead(footPedal) == HIGH)
         {
-//          Serial.println("Foot pedal released while lifting");
           lcd.setCursor(0,3);
           lcd.print("FPRWL          ");
           emergencyLift();
@@ -683,7 +673,6 @@ void lift()
         delay(500);
         if (analogRead(pressureSensor) > 204)  // 1 volt
         {
-//          Serial.println("Bar placed back in rack");
           lcd.setCursor(0,3);
           lcd.print("BPBIR          ");
           liftingFlag = false;
@@ -697,7 +686,6 @@ void lift()
       {
         // Wait for bar to be lifted out of rack
         case barInRack:
-//          Serial.println("State: barInRack");
           lcd.setCursor(0,2);
           lcd.print("SBIR");
           if (analogRead(pressureSensor) < 204)  // 1 volt
@@ -711,7 +699,6 @@ void lift()
           
         // Bar is moving downwards
         case downwardState:
-//          Serial.println("State: downwardState");
           lcd.setCursor(0,2);
           lcd.print("SDWS ");
           lcd.print(WECounts);
@@ -720,7 +707,6 @@ void lift()
           tmp = WECounts;
           if (upwards && tmp < bottomThreshold)
           {
-//            WECounts = 0;  // reset counter to maintain accuracy
             stall = 0;
             reps++;
             liftState = upwardState;
@@ -730,61 +716,29 @@ void lift()
           // Guard against free fall
           if (countDiff < speedThreshold)  // Threshold and countdiff are both negative
           {
-//            Serial.println("Freefall detected");
             lcd.setCursor(0,3);
             lcd.print("FFD          ");
-//            emergencyLift();
             emergencyLift();
             liftingFlag = false;
             return;
           }
-          
-          // Redundant??
-//          if (WECounts <= bottomVal)
-//          {
-//            liftState = upwardState;
-//            break;
-//          }
-          
           break;
           
         case upwardState:
-//          Serial.println("State: upward state");
           lcd.setCursor(0,2);
           lcd.print("SUWS ");
-//          if (upwards) lcd.print("U ");
-//          else if (downwards) lcd.print("D ");
-//          else lcd.print("N ");
           lcd.print(WECounts);
-//          lcd.print(stall);
           lcd.print("     ");
-          
-          // Clear stalls if they are irrelevant
-          // redundant???
-//          if (WECounts <= 15 || WECounts >= 0.85*topVal) stall = 0;
-          
+
           // help user if stall detected
           if ((stall > 0) && (WECounts < topThreshold))
           {
-            //Serial.println("Stall detected");
             lcd.setCursor(0,3);
             lcd.print("STALL          ");
             assist(stall);
             break;
           }
-          
-//          // emergency lift if downwards motion detected before user gets to topVal
-//          // commented out due to bugginess
-//          if (downwardsCnt >= 2 && WECounts < (0.85*topVal))
-//          {
-//            //Serial.println("downward motion detected before top of lift");
-//            lcd.setCursor(0,3);
-//            lcd.print("DMD            ");
-//            emergencyLift();
-//            liftingFlag = false;
-//            return;
-//          }
-          
+                 
           // If downward motion is detected at top of lift, go to downward state
           if (downwards && WECounts >= topThreshold)
           {
@@ -795,7 +749,6 @@ void lift()
           
         default:
           // exit lifting loop
-//          Serial.println("Exit lift");
           lcd.setCursor(0,3);
           lcd.print("EXIT_SUCCESS     ");
           liftingFlag = false;
@@ -898,7 +851,7 @@ void setup()
   
   // Print a message to the LCD.
   splashScreen();
-  newMenu();
+  Menu();
 }
 
 void loop()
@@ -965,7 +918,7 @@ void loop()
       }
       
       menuRow = 1;
-      setupMenu();
+      Menu();
       myState = waitForInput;
       
 
@@ -975,20 +928,6 @@ void loop()
       // do nothing
       break;
   }
-  
-//  noInterrupts();
-//  int tmpCnt = WECounts;
-//  int tmpErr = WEError;
-//  interrupts();
-  
-//  Serial.print("WE Counts: ");
-//  Serial.print(tmpCnt);
-//  Serial.println();
-  
-//  Serial.print("WE Error: ");
-//  Serial.print(tmpErr);
-//  Serial.println();
-//  Serial.println();  
-  
+    
   delay(100);
 }
