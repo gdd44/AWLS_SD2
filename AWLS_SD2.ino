@@ -856,7 +856,7 @@ void setup()
 
 void loop()
 {
-  static uint8_t menuRow = 1;
+  static uint8_t menuRow = 0;
   static byte myState = waitForInput;
   
   switch (myState)
@@ -870,14 +870,14 @@ void loop()
       lcd.setCursor(0,menuRow);
       lcd.print(" ");
       menuRow++;
-      if (menuRow > 4) menuRow = 1;
+      if (menuRow >= 4) menuRow = 0;
       lcd.setCursor(0,menuRow);
       lcd.print(">");
       myState = waitForInput;
       break;
       
     case selBtnPressed:
-      if (menuRow == 1)
+      if (menuRow == 0)
       {
         // make sure user isn't locked out
         if (lockoutFlag)
@@ -890,7 +890,7 @@ void loop()
           calibrate();
         }
       }
-      else if (menuRow == 2)
+      else if (menuRow == 1)
       {
         // make sure user isn't locked out
         if (lockoutFlag)
@@ -908,16 +908,16 @@ void loop()
           waitForButtonPress();
         }
       }
-      else if (menuRow == 3)
+      else if (menuRow == 2)
       {
         statistics();
       }
-      else if (menuRow == 4)
+      else if (menuRow == 3)
       {
         spoolOutLine();
       }
       
-      menuRow = 1;
+      menuRow = 0;
       Menu();
       myState = waitForInput;
       
